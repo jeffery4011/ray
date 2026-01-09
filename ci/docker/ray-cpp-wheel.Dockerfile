@@ -1,22 +1,21 @@
 # syntax=docker/dockerfile:1.3-labs
 #
-# Ray Wheel Builder
-# =================
-# Builds manylinux2014-compatible ray wheel using pre-built C++ artifacts from wanda cache.
+# Ray C++ Wheel Builder
+# =====================
+# Builds manylinux2014-compatible ray-cpp wheel using pre-built C++ artifacts from wanda cache.
 #
-# GLIBC Compatibility:
-# --------------------
-# manylinux2014 requires GLIBC <= 2.17 for broad Linux compatibility.
-# The pre-built _raylet.so is compiled inside manylinux2014 with GLIBC 2.17.
-#
+# This is a minimal Dockerfile for ray-cpp wheel builds only.
+# It copies only the files needed for the cpp wheel, reducing build context size.
 
 ARG RAY_CORE_IMAGE
+ARG RAY_CPP_CORE_IMAGE
 ARG RAY_JAVA_IMAGE
 ARG RAY_DASHBOARD_IMAGE
 ARG MANYLINUX_VERSION
 ARG HOSTTYPE
 
 FROM ${RAY_CORE_IMAGE} AS ray-core
+FROM ${RAY_CPP_CORE_IMAGE} AS ray-cpp-core
 FROM ${RAY_JAVA_IMAGE} AS ray-java
 FROM ${RAY_DASHBOARD_IMAGE} AS ray-dashboard
 
@@ -34,23 +33,26 @@ COPY --from=ray-core /ray_py_proto.zip /tmp/
 COPY --from=ray-java /ray_java_pkg.zip /tmp/
 COPY --from=ray-dashboard /dashboard.tar.gz /tmp/
 
-# Source files needed for wheel build
+# Minimal source files needed for cpp wheel build
 COPY --chown=forge ci/build/build-manylinux-wheel.sh ci/build/
 COPY --chown=forge README.rst pyproject.toml ./
-COPY --chown=forge rllib/ rllib/
-COPY --chown=forge python/ python/
+COPY --chown=forge python/setup.py python/
+COPY --chown=forge python/LICENSE.txt python/
+COPY --chown=forge python/MANIFEST.in python/
+COPY --chown=forge python/ray/_version.py python/ray/
 
 USER forge
 # - BUILDKITE_COMMIT: Used for ray.__commit__. Defaults to "unknown" for local builds.
 ENV PYTHON_VERSION=${PYTHON_VERSION} \
     BUILDKITE_COMMIT=${BUILDKITE_COMMIT:-unknown}
-RUN <<'EOF'
+RUN --mount=from=ray-cpp-core,source=/,target=/ray-cpp-core,ro \
+    <<'EOF'
 #!/bin/bash
 set -euo pipefail
 
 # Clean extraction dirs to avoid stale leftovers
-rm -rf /tmp/ray_pkg /tmp/ray_java_pkg
-mkdir -p /tmp/ray_pkg /tmp/ray_java_pkg
+rm -rf /tmp/ray_pkg /tmp/ray_java_pkg /tmp/ray_cpp_pkg
+mkdir -p /tmp/ray_pkg /tmp/ray_java_pkg /tmp/ray_cpp_pkg
 
 # Unpack pre-built artifacts
 unzip -o /tmp/ray_pkg.zip -d /tmp/ray_pkg
@@ -65,21 +67,22 @@ cp -r /tmp/ray_pkg/ray/* python/ray/
 # Java JARs
 cp -r /tmp/ray_java_pkg/ray/* python/ray/
 
-# Build ray wheel
+# C++ API artifacts (headers, libs, examples)
+unzip -o /ray-cpp-core/ray_cpp_pkg.zip -d /tmp/ray_cpp_pkg
+cp -r /tmp/ray_cpp_pkg/ray/cpp python/ray/
+
+# Build cpp wheel
 PY_VERSION="${PYTHON_VERSION//./}"
 PY_BIN="cp${PY_VERSION}-cp${PY_VERSION}"
-SKIP_BAZEL_BUILD=1 RAY_DISABLE_EXTRA_CPP=1 \
+SKIP_BAZEL_BUILD=1 WHEEL_TYPE=cpp \
 ./ci/build/build-manylinux-wheel.sh "$PY_BIN"
 
 # Sanity check: ensure wheels exist
-if [[ ! -d .whl ]]; then
-  echo "ERROR: .whl directory not created"
-  exit 1
-fi
-wheels=($(find .whl -maxdepth 1 -name '*.whl'))
+shopt -s nullglob
+wheels=(.whl/*.whl)
 if (( ${#wheels[@]} == 0 )); then
   echo "ERROR: No wheels produced in .whl/"
-  ls -la .whl
+  ls -la .whl || true
   exit 1
 fi
 
