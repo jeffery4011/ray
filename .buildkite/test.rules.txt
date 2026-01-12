@@ -257,3 +257,9 @@ setup_hooks.sh
 .fossa.yml
 # pass
 ;
+
+*
+@ ml tune train data serve
+@ core_cpp cpp java python doc
+@ linux_wheels macos_wheels dashboard tools release_tests
+;

@@ -1,0 +1,84 @@
+# Test cases for Ray CI test rules
+# Based on ci/pipeline/test_conditional_testing.py _TESTS_YAML
+#
+# Format: file: tag1 tag2 tag3
+
+# === CI/Pipeline ===
+
+ci/pipeline/test_conditional_testing.py: always lint tools
+
+# === Ray Libraries ===
+
+python/ray/data/__init__.py: always lint data ml train
+python/ray/air/__init__.py: always lint ml train tune data linux_wheels
+python/ray/llm/llm.py: always lint llm
+python/ray/workflow/workflow.py: always lint workflow
+python/ray/tune/tune.py: always lint ml train tune linux_wheels
+python/ray/train/train.py: always lint ml train linux_wheels
+python/ray/serve/serve.py: always lint serve linux_wheels java
+python/ray/dashboard/dashboard.py: always lint dashboard linux_wheels python
+
+# === Ray Utilities ===
+
+python/ray/util/dask/dask.py: always lint python dask
+python/ray/dag/dag.py: always lint python cgraphs_direct_transport
+python/ray/experimental/gpu_object_manager/gpu_object_manager.py: always lint python cgraphs_direct_transport
+
+# === RLlib ===
+
+rllib/rllib.py: always lint rllib rllib_gpu rllib_directly
+
+# === Python Core ===
+
+python/core.py: always lint ml tune train data python dashboard linux_wheels macos_wheels java
+python/setup.py: always lint ml tune train serve workflow data python dashboard linux_wheels macos_wheels java python_dependencies
+python/requirements/test-requirements.txt: always lint ml tune train serve workflow data python dashboard linux_wheels macos_wheels java python_dependencies
+python/_raylet.pyx: always lint ml tune train data python dashboard linux_wheels macos_wheels java
+
+# === Buildkite Configs ===
+
+.buildkite/ml.rayci.yml: always lint ml train tune
+.buildkite/core.rayci.yml: always lint python core_cpp
+.buildkite/others.rayci.yml: always lint java
+.buildkite/lint.rayci.yml: always lint tools
+.buildkite/macos.rayci.yml: always lint macos_wheels
+.buildkite/base.rayci.yml: always lint docker linux_wheels tools
+
+# === Java/C++ ===
+
+java/ray.java: always lint java
+cpp/ray.cc: always lint cpp
+src/ray.cpp: always lint core_cpp cpp java python linux_wheels macos_wheels dashboard release_tests
+
+# === Docker ===
+
+docker/Dockerfile.ray: always lint docker linux_wheels
+ci/docker/doctest.build.Dockerfile: always lint
+
+# === Documentation ===
+
+doc/index.md: always lint
+doc/code.py: always lint doc
+doc/example.ipynb: always lint doc
+doc/tutorial.rst: always lint doc
+.readthedocs.yaml: always lint doc
+.vale.ini: always lint doc
+.vale/styles/config/vocabularies/Core/accept.txt: always lint doc
+
+# === Release ===
+
+release/requirements.txt: always lint release_tests
+release/requirements_py310.txt: always lint tools
+release/release_tests.yaml: always lint tools
+
+# === CI Scripts ===
+
+ci/lint/lint.sh: always lint tools
+ci/ray_ci/tester.py: always lint tools
+ci/ci.sh: always lint tools
+
+# === Root Files ===
+
+.github/CODEOWNERS: always lint
+README.rst: always lint
+BUILD.bazel: always lint ml tune train data serve core_cpp cpp java python doc linux_wheels macos_wheels dashboard tools release_tests
